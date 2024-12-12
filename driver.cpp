@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>  // For vector usage
 #include <fstream> // For file output
+#include <ctime>   // For timing
 using namespace std;
 
 // Specimen Node
@@ -20,23 +21,15 @@ class Specimens {
 private:
     Specimen* root;
 
-    //******************************************************************/
-    // insert - Helper function to insert a node into the tree
-    // arguments - node (current node), UPC (str), name (str), price (fl)
-    // returns - ptr to the updated node
-    //******************************************************************/
     Specimen* insert(Specimen* node, string UPC, string name, float price) {
         if (node == nullptr) return new Specimen(UPC, name, price);
-        if (UPC < node->UPC) node->left = insert(node->left, UPC, name, price);
-        else if (UPC > node->UPC) node->right = insert(node->right, UPC, name, price);
+        if (UPC < node->UPC) 
+            node->left = insert(node->left, UPC, name, price);
+        else if (UPC > node->UPC) 
+            node->right = insert(node->right, UPC, name, price);
         return node;
     }
 
-    //******************************************************************/
-    // inOrder - Helper function for in-order traversal
-    // arguments - node (current node)
-    // returns - void
-    //******************************************************************/
     void inOrder(Specimen* node) {
         if (node == nullptr) return;
         inOrder(node->left);
@@ -44,61 +37,39 @@ private:
         inOrder(node->right);
     }
 
-    //******************************************************************/
-    // search - Helper function to search for a node by UPC
-    // arguments - node (current node), UPC (str), steps (int ref)
-    // returns - ptr to the found node or nullptr if not found
-    //******************************************************************/
-    Specimen* search(Specimen* node, string UPC, int& steps) {
+    int search(Specimen* node, string UPC, int& steps) {
         if (node == nullptr) {
             cout << "Null node." << endl;
-            return node;
+            return steps;
         }
-        steps++;  // Iterate step counter for each node visited
+        steps++;  // Increment step counter for each node visited
         cout << "Step " << steps << ": Visiting node with UPC: " << node->UPC << endl;
-        if (UPC == node->UPC) return node;
+        if (UPC == node->UPC) return steps;
         if (UPC < node->UPC) return search(node->left, UPC, steps);
         return search(node->right, UPC, steps);
     }
 
 public:
-    //*****************************************************************/
-    // addSpecimen - Inserts a new Specimen into the inventory
-    // arguments - UPC (string), name (string), price (float)
-    // returns - void
-    //*****************************************************************/
+    Specimens() : root(nullptr) {}
+
     void addSpecimen(string UPC, string name, float price) {
         root = insert(root, UPC, name, price);
     }
 
-    //*****************************************************************/
-    // displayInventory - Displays the Specimen inventory in sorted order
-    // arguments - none
-    // returns - void
-    //*****************************************************************/
     void displayInventory() {
         cout << "Inventory List (sort by UPC):" << endl;
         inOrder(root);
     }
 
-    //*****************************************************************/
-    // findSpecimenWithSteps - Searches for a Specimen and counts traversal steps
-    // arguments - UPC (string)
-    // returns - pair<bool, int> indicating if the Specimen was found and steps taken
-    //*****************************************************************/
-    pair<bool, int> findSpecimenWithSteps(string UPC) {
-        int steps = 0;
-        cout << "\nSearching for Specimen - UPC: " << UPC << endl;
-        Specimen* result = search(root, UPC, steps);
-        if (result) {
-            cout << "Found Specimen - UPC: " << result->UPC; 
-            cout << ", Name: " << result->name << ", Price: $";
-            cout << result->price << endl;
-            return {true, steps};
-        } else {
-            cout << "Specimen - UPC " << UPC << " not found!" << endl;
-            return {false, steps};
-        }
+    double findSpecimenSteps(string UPC, int& steps) {
+        clock_t start = clock(); // Start timing
+        int traversalSteps = search(root, UPC, steps);
+        clock_t end = clock();   // End timing
+
+        double duration = 1000.0 * (end - start) / CLOCKS_PER_SEC; // Convert to milliseconds
+        cout << "Search completed in " << traversalSteps << " steps (Time: " << duration << " ms)" << endl;
+
+        return duration;
     }
 };
 
@@ -106,7 +77,6 @@ public:
 int main() {
     Specimens inventory;
 
-    // Dataset with at least 10 Specimens
     vector<pair<string, pair<string, float>>> Collection = {
         {"000", {"Free", 0.00}},
         {"001", {"Quartz", 12.99}},
@@ -118,26 +88,23 @@ int main() {
         {"007", {"Garnet", 22.45}},
         {"008", {"Obsidian", 9.80}},
         {"009", {"Fluorite", 14.25}},
-        {"010", {"Citrine", 17.99}}        
+        {"010", {"Aragonite", 27.20}}       
     };
 
-    // Add Specimens to the inventory
     for (const auto& specimen : Collection) {
         inventory.addSpecimen(specimen.first, specimen.second.first, specimen.second.second);
     }
 
-    // Display the inventory
     inventory.displayInventory();
 
-    // Perform searches and record steps
-    vector<string> searchUPCs = {"002", "004", "007", "011", "A", "", "001"};  // Includes invalid cases
+    vector<string> searchUPCs = {"000", "001", "002", "003", "004", "005","006","007","008","009","010","011"}; 
     
-    // save to csv file to analyze
     ofstream outputFile("search_results_steps.csv");
-    outputFile << "UPC,Found,Steps\n";
+    outputFile << "UPC,Steps,Time(ms)\n";
     for (const string& UPC : searchUPCs) {
-        auto [found, steps] = inventory.findSpecimenWithSteps(UPC);
-        outputFile << UPC << "," << (found ? "Yes" : "No") << "," << steps << "\n";
+        int steps = 0;
+        double time = inventory.findSpecimenSteps(UPC, steps);
+        outputFile << UPC << "," << steps << "," << time << "\n";
     }
     outputFile.close();
 
